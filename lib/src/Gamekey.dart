@@ -12,9 +12,12 @@ class GamekeyService {
   final gameUrl = new UrlPattern(r'/game/((\w+)(-\w+)*)');
   final gamePostUrl = new UrlPattern(r'/game');
 
-  final gameStatesUrl = new UrlPattern(r'/gamestate/((\w+)(-\w+)*)');
+  final getGameStateGidUrl = new UrlPattern(r'/gamestate/((\w+)(-\w+)*)');
+  final getGameStateGidUidUrl = new UrlPattern(
+      r'/gamestate/((\w+)(-\w+)*)/((\w+)(-\w+)*)');
   final gameStateUrl = new UrlPattern(
       r'/gamestate/((\w+)(-\w+)*)/((\w+)(-\w+)*)');
+
 
   //TODO wofür ist der genau nötig?
 
@@ -108,9 +111,9 @@ class GamekeyService {
       ..serve(gameStateUrl, method: 'OPTIONS').listen(gameStateOptions)
       ..serve(gameStateUrl, method: 'POST').listen(postGameState)
     //Retrieves all gamestates stored for a game and a user.
-      ..serve(gameStateUrl, method: 'GET').listen(getGameStateGid)
+      ..serve(getGameStateGidUrl, method: 'GET').listen(getGameStateGid)
     //Retrieves all gamestates stored for a game.
-      ..serve(gameStatesUrl, method: 'GET').listen(getGameStateGidUid);
+      ..serve(getGameStateGidUidUrl, method: 'GET').listen(getGameStateGidUid);
     return new Future.value(router);
   }
 
@@ -736,6 +739,62 @@ class GamekeyService {
         return;
       }
 
+      if ((authenticate(game, secret) == false) &&
+          (authenticate(user, secret) == false)) {
+        response.statusCode = HttpStatus.UNAUTHORIZED;
+        response.reasonPhrase =
+        "unauthorized, please provide correct game credentials";
+        response.write(response.reasonPhrase);
+        response.close();
+        return;
+      }
+
+      userGameState = new List();
+      for (Map gameState in memory['gamestates']) {
+        if ((gameState['gameid'] == gameid) &&
+            (gameState['userid'] == userid)) {
+          gameStateClone = new Map();
+          gameStateClone.addAll(gameState);
+          gameStateClone['gamename'] = game['name'];
+          gameStateClone['username'] = user['name'];
+          userGameState.add(gameStateClone);
+        }
+      }
+
+      userGameState.sort((a, b) => b['created'].compareTo(a['created']));
+      response.statusCode = HttpStatus.OK;
+      response.write(JSON.encode(userGameState));
+      response.close();
+    });
+  }
+
+  getGameStateGid(HttpRequest request) {
+    final pathsegments = request.uri.pathSegments;
+    final gameid = pathsegments[1];
+    String secret;
+    Map game = new Map();
+    Map gameStateClone = new Map();
+    List gameGameState = new List();
+    HttpResponse response = request.response;
+    enableCors(response);
+    request.transform(UTF8.decoder).join("\n").then((body) {
+      Map params = Uri
+          .parse("?$body")
+          .queryParameters;
+      if (params.isEmpty) {
+        params = request.uri.queryParameters;
+      }
+      secret = params['secret'];
+      game = get_game_by_id(gameid);
+
+      if (game == null) {
+        response.statusCode = HttpStatus.NOT_FOUND;
+        response.reasonPhrase = "game id or user id not found";
+        response.write(response.reasonPhrase);
+        response.close();
+        return;
+      }
+
       if (authenticate(game, secret) == false) {
         response.statusCode = HttpStatus.UNAUTHORIZED;
         response.reasonPhrase =
@@ -745,26 +804,19 @@ class GamekeyService {
         return;
       }
 
-      for(Map gameState in memory['gamestates']) {
-        if ((gameState['gameid'] == gameid) && (gameState['userid'] == userid)) {
+      for (Map gameState in memory['gamestates']) {
+        if (gameState['gameid'] == gameid) {
           gameStateClone.addAll(gameState);
           gameStateClone['gamename'] = game['name'];
-          gameStateClone['username'] = user['name'];
-          userGameState.add(gameStateClone);
+          gameStateClone['username'] = get_user_by_id(gameState['userid']);
+          gameGameState.add(gameStateClone);
         }
       }
-      userGameState.sort((a, b) => b['created'].compareTo(a['created']));
-
+      gameGameState.sort((a, b) => b['created'].compareTo(a['created']));
       response.statusCode = HttpStatus.OK;
-      response.write(JSON.encode(userGameState));
+      response.write(JSON.encode(gameGameState));
       response.close();
     });
-  }
-
-  getGameStateGid(HttpRequest request) {
-    HttpResponse response = request.response;
-    enableCors(response);
-    response.close();
   }
 
   gameStateOptions(HttpRequest request) {
