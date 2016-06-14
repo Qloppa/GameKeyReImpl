@@ -896,9 +896,4 @@ class GamekeyService {
       file.writeAsStringSync(JSON.encode(memory));
     });
   }
-
-  api() {
-    //möglicherweise auch main()
-
-  }
 }
