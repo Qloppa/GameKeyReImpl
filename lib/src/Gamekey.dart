@@ -2,7 +2,6 @@ part of gameKeyLib;
 
 class GamekeyService {
 
-  //URI's //TODO reguläre Ausdrücke anpassen
   final usersUrl = new UrlPattern(r'/users');
   final userUrl = new UrlPattern(r'/user/((\w+)(-\w+)*)');
   final userPostUrl = new UrlPattern(r'/user');
@@ -15,13 +14,7 @@ class GamekeyService {
   final getGameStateGidUrl = new UrlPattern(r'/gamestate/((\w+)(-\w+)*)');
   final getGameStateGidUidUrl = new UrlPattern(
       r'/gamestate/((\w+)(-\w+)*)/((\w+)(-\w+)*)');
-  final gameStateUrl = new UrlPattern(
-      r'/gamestate/((\w+)(-\w+)*)/((\w+)(-\w+)*)');
 
-
-  //TODO wofür ist der genau nötig?
-
-  //init Variables
   File file = new File(defaultStoragePath);
   var storage = defaultStoragePath;
   int port = defaultPort;
@@ -48,7 +41,6 @@ class GamekeyService {
     return ret;
   }
 
-  //TODO return als escape?!? der erste user soll returnt werden
   get_user_by_id(id) {
     var user;
     for (user in this.memory['users']) {
@@ -83,8 +75,10 @@ class GamekeyService {
     response.headers.add('Access-Control-Allow-Origin', '*');
     response.headers.add('Access-Control-Allow-Methods',
         'GET, PUT, POST, DELETE, OPTIONS');
-    response.headers.add('Access-Control-Allow-Headers',
-        'Origin, X-Requested-With, Content-Type, Accept, Charset');
+    response.headers.add(
+        "Access-Control-Allow-Headers",
+        "Origin, X-Requested-With, Content-Type, Accept, Charset"
+    );
   }
 
   Future<Router> serve({ip: '0.0.0.0', port: defaultPort}) async {
@@ -92,8 +86,8 @@ class GamekeyService {
 
     final router = new Router(server)
       ..serve(userUrl, method: 'OPTIONS').listen(userOptions)
-      ..serve(userPostUrl, method: 'OPTIONS').listen(userPostOptions)
-      ..serve(userGetUrl, method: 'OPTIONS').listen(userGetOptions)
+      ..serve(userUrl, method: 'OPTIONS').listen(userPostOptions)
+      ..serve(userUrl, method: 'OPTIONS').listen(userGetOptions)
       ..serve(userPostUrl, method: 'POST').listen(postUser)
       ..serve(userGetUrl, method: 'GET').listen(getUser)
       ..serve(userUrl, method: 'PUT').listen(putUser)
@@ -101,18 +95,16 @@ class GamekeyService {
       ..serve(usersUrl, method: 'GET').listen(getUsers)
 
       ..serve(gameUrl, method: 'OPTIONS').listen(gameOptions)
-      ..serve(gamePostUrl, method: 'OPTIONS').listen(gamePostOptions)
+      ..serve(gameUrl, method: 'OPTIONS').listen(gamePostOptions)
       ..serve(gamePostUrl, method: 'POST').listen(postGame)
       ..serve(gameUrl, method: 'GET').listen(getGame)
       ..serve(gameUrl, method: 'PUT').listen(putGame)
       ..serve(gameUrl, method: 'DELETE').listen(deleteGame)
       ..serve(gamesUrl, method: 'GET').listen(getGames)
 
-      ..serve(gameStateUrl, method: 'OPTIONS').listen(gameStateOptions)
-      ..serve(gameStateUrl, method: 'POST').listen(postGameState)
-    //Retrieves all gamestates stored for a game and a user.
+      ..serve(getGameStateGidUidUrl, method: 'OPTIONS').listen(gameStateOptions)
+      ..serve(getGameStateGidUidUrl, method: 'POST').listen(postGameState)
       ..serve(getGameStateGidUrl, method: 'GET').listen(getGameStateGid)
-    //Retrieves all gamestates stored for a game.
       ..serve(getGameStateGidUidUrl, method: 'GET').listen(getGameStateGidUid);
     return new Future.value(router);
   }
@@ -172,9 +164,6 @@ class GamekeyService {
         response.close();
         return;
       }
-
-      //TODO EMAIL geschichte inklusive badRequest und EMAIL_REGEX
-
 
       user = get_user_by_name(name);
       if (user != null) {
@@ -245,8 +234,7 @@ class GamekeyService {
       }
 
       if (byname == 'true') {
-        user = get_user_by_name(
-            id); //TODO müsste hier nicht der Name übergeben werden
+        user = get_user_by_name(id);
       } else {
         user = get_user_by_id(id);
       }
@@ -347,8 +335,6 @@ class GamekeyService {
       }
       user['update'] = "${new DateTime.now().toUtc().toIso8601String()}";
 
-      //TODO wird der geänderte user überhaupt in die json geschrieben?
-      //memory['users'].add(user); //TODO mit memory passiert doch garnichts!
       response.statusCode = HttpStatus.OK;
       response.write(JSON.encode(user));
       response.close();
@@ -392,9 +378,8 @@ class GamekeyService {
         return;
       }
 
-      memory['users'].remove(user); //TODO eventuell näher an kratzke
+      memory['users'].remove(user);
 
-      //TODO zwei For Schleifen?
       for (Map gameState in memory['gamestates']) {
         if (gameState['userid'] == id) {
           deleteList.add(gameState);
@@ -486,20 +471,6 @@ class GamekeyService {
         return;
       }
 
-      //TODO Uri nicht implementiert...
-      /*
-      if (uri != null && url.isEmpty == false) {
-        if (uri.isAbsolute == false) {
-          response.statusCode = HttpStatus.BAD_REQUEST;
-          response.reasonPhrase =
-          "Bad Request: '${url}' is not a valid absolute url";
-          response.write(response.reasonPhrase);
-          response.close();
-          return;
-        }
-      }
-      */
-
       for (Map game in memory['games']) {
         if (game['name'] == name) {
           response.statusCode = HttpStatus.CONFLICT;
@@ -509,7 +480,7 @@ class GamekeyService {
           return;
         }
       }
-      //TODO URL müsste eigentlich noch auf REGEX geprüft werden
+
       signature = getSignature(id, secret);
 
       game = {
@@ -689,9 +660,8 @@ class GamekeyService {
         return;
       }
 
-      memory['games'].remove(game); //TODO eventuell näher an kratzke
+      memory['games'].remove(game);
 
-      //TODO zwei For Schleifen?
       for (Map gameState in memory['gamestates']) {
         if (gameState['gameid'] == id) {
           deleteList.add(gameState);
@@ -830,8 +800,6 @@ class GamekeyService {
     final pathsegments = request.uri.pathSegments;
     final gameid = pathsegments[1];
     final userid = pathsegments[2];
-    //String gameid;
-    //String userid;
     String secret;
     var state;
     Map game = new Map();
